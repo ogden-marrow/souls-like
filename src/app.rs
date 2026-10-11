@@ -365,6 +365,8 @@ pub struct App {
     ctx: egui::Context,
     icons: [Option<egui::TextureHandle>; 3],
     icon_tried: [bool; 3],
+    pick_tx: Sender<(usize, bool, PathBuf)>,
+    pick_rx: Receiver<(usize, bool, PathBuf)>,
     char_cache: std::collections::HashMap<PathBuf, (std::time::SystemTime, u64, String)>,
 }
 
@@ -378,6 +380,7 @@ impl App {
         let cfg = Config::load();
         ctx.set_theme(theme_pref(&cfg.theme));
         let (tx, rx) = channel();
+        let (pick_tx, pick_rx) = channel();
         let page = GAMES
             .iter()
             .position(|g| g.key == cfg.last)
@@ -399,6 +402,8 @@ impl App {
             ctx: ctx.clone(),
             icons: Default::default(),
             icon_tried: [false; 3],
+            pick_tx,
+            pick_rx,
             char_cache: Default::default(),
         };
         app.refresh_all();
@@ -1470,6 +1475,7 @@ impl App {
                 .color(p.dim),
         );
         let mut changed = false;
+        let mut picks: Vec<(usize, bool, String)> = Vec::new();
         for gi in 0..3 {
             let g = &GAMES[gi];
             ui.add_space(4.0);
@@ -1482,9 +1488,12 @@ impl App {
                     false,
                     |ui| title_sub(ui, &p, "Game folder", ""),
                     |ui| {
+                        if small_button(ui, "Browse…") {
+                            picks.push((gi, true, st.game_dir.clone()));
+                        }
                         let r = ui.add(
                             egui::TextEdit::singleline(&mut st.game_dir)
-                                .desired_width(380.0)
+                                .desired_width(300.0)
                                 .hint_text("auto"),
                         );
                         changed |= r.lost_focus();
@@ -1496,9 +1505,12 @@ impl App {
                     false,
                     |ui| title_sub(ui, &p, "Save folder", ""),
                     |ui| {
+                        if small_button(ui, "Browse…") {
+                            picks.push((gi, false, st.save_dir.clone()));
+                        }
                         let r = ui.add(
                             egui::TextEdit::singleline(&mut st.save_dir)
-                                .desired_width(380.0)
+                                .desired_width(300.0)
                                 .hint_text("auto"),
                         );
                         changed |= r.lost_focus();
@@ -1509,6 +1521,26 @@ impl App {
         if changed {
             self.cfg.save();
             self.refresh_all();
+        }
+        // native folder picker, run off the UI thread so the window stays responsive
+        for (gi, is_game, current) in picks {
+            let tx = self.pick_tx.clone();
+            let ctx = self.ctx.clone();
+            let title = if is_game {
+                "Choose the game folder"
+            } else {
+                "Choose the save folder"
+            };
+            std::thread::spawn(move || {
+                let mut dlg = rfd::FileDialog::new().set_title(title);
+                if !current.trim().is_empty() && std::path::Path::new(current.trim()).is_dir() {
+                    dlg = dlg.set_directory(current.trim());
+                }
+                if let Some(path) = dlg.pick_folder() {
+                    let _ = tx.send((gi, is_game, path));
+                    ctx.request_repaint();
+                }
+            });
         }
         ui.add_space(18.0);
         section(ui, &p, "DETECTED");
@@ -1853,6 +1885,25 @@ impl App {
             self.refresh_all();
         }
         ctx.request_repaint_after(Duration::from_secs(3));
+        while let Ok((gi, is_game, path)) = self.pick_rx.try_recv() {
+            let st = self.cfg.game(GAMES[gi].key);
+            if is_game {
+                st.game_dir = path.display().to_string();
+            } else {
+                st.save_dir = path.display().to_string();
+            }
+            self.cfg.save();
+            self.refresh_all();
+            self.load_texts();
+            self.say(
+                format!(
+                    "{} folder set for {}",
+                    if is_game { "Game" } else { "Save" },
+                    GAMES[gi].name
+                ),
+                false,
+            );
+        }
         self.handle_drops(&ctx);
 
         let p = pal(ui);
@@ -1945,6 +1996,16 @@ impl App {
 mod shots {
     use super::*;
     use egui_kittest::Harness;
+
+    /// How long the app takes to build its first state: `cargo test startup_time -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn startup_time() {
+        let t = std::time::Instant::now();
+        let ctx = egui::Context::default();
+        let _app = App::with_ctx(&ctx);
+        println!("App::with_ctx took {:?}", t.elapsed());
+    }
 
     /// Renders every page to PNGs: `SHOTS_DIR=/tmp/x cargo test render_pages -- --ignored`.
     #[test]

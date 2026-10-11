@@ -25,6 +25,7 @@ Written in Rust with [egui](https://github.com/emilk/egui). One binary, no runti
 - **Characters per save**: each save lists the characters inside it, for all three games.
 - **Copy a single character** between saves, or into another slot of the same save, in Dark Souls
   Remastered, **Dark Souls II** and Dark Souls III. See [Copying characters](#copying-characters).
+- **Folder pickers** in Settings for each game's install folder and save folder (blank = detect from Steam).
 - Light, dark or follow-the-system theme.
 
 ## Copying characters

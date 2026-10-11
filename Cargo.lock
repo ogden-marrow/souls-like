@@ -3113,7 +3113,7 @@ dependencies = [
 
 [[package]]
 name = "souls-like"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "aes",
  "cbc",

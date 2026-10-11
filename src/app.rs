@@ -618,7 +618,7 @@ impl App {
         }
         let v = &self.views[gi];
         let sub = if v.running {
-            "● Running".to_string()
+            "Running".to_string()
         } else if v.loc.is_none() {
             "Not installed".to_string()
         } else if g.sub.is_empty() {
@@ -682,6 +682,12 @@ impl App {
         }
         ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
             ui.spacing_mut().item_spacing.y = 2.0;
+            ui.add_space(4.0);
+            ui.label(
+                RichText::new(format!("Souls-like v{}", env!("CARGO_PKG_VERSION")))
+                    .size(11.0)
+                    .color(p.dim),
+            );
             self.nav_item(ui, &p, "Settings", Page::Settings);
             self.nav_item(ui, &p, "Shared co-op settings", Page::Shared);
             self.nav_item(ui, &p, "Mods", Page::Mods);

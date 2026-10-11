@@ -3,11 +3,15 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  check:
+    name: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -16,18 +20,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev libxcb1-dev libgl1-mesa-dev
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev libxcb1-dev libgl1-mesa-dev pkg-config
+      - name: Format
+        if: runner.os == 'Linux'
+        run: cargo fmt --check
       - name: Test
         run: cargo test --bins
-      - name: Build release
+      - name: Build
         run: cargo build --release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: souls-like-${{ runner.os }}
-          path: |
-            target/release/souls-like
-            target/release/souls-like.exe
-          if-no-files-found: ignore

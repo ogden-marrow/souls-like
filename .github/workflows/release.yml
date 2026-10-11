@@ -1,0 +1,103 @@
+name: Release
+
+# Push a tag like v0.1.0 to build Linux and Windows binaries and publish them as a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-22.04 # older glibc so the binary runs on more distros
+          - name: windows-x86_64
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev libxcb1-dev libgl1-mesa-dev pkg-config
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          name=souls-like-${{ github.ref_name }}-${{ matrix.name }}
+          mkdir -p "dist/$name"
+          cp target/release/souls-like "dist/$name/"
+          cp -r packaging README.md LICENSE "dist/$name/"
+          rm -f "dist/$name/packaging/install-linux.sh"
+          cat > "dist/$name/install.sh" <<'SH'
+          #!/usr/bin/env bash
+          # Installs the prebuilt binary, icon and app-menu entry for the current user.
+          set -euo pipefail
+          cd "$(dirname "$0")"
+          install -Dm755 souls-like "$HOME/.local/bin/souls-like"
+          install -Dm644 packaging/souls-like.svg "$HOME/.local/share/icons/hicolor/scalable/apps/souls-like.svg"
+          for n in 16 32 48 64 128 256 512; do
+            install -Dm644 "packaging/icons/$n.png" "$HOME/.local/share/icons/hicolor/${n}x${n}/apps/souls-like.png"
+          done
+          sed -e "s|^Exec=.*|Exec=$HOME/.local/bin/souls-like|" \
+              -e "s|^Icon=.*|Icon=$HOME/.local/share/icons/hicolor/256x256/apps/souls-like.png|" \
+              packaging/souls-like.desktop > "$HOME/.local/share/applications/souls-like.desktop"
+          update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+          echo "Installed. Launch Souls-like from your app menu."
+          SH
+          chmod +x "dist/$name/install.sh"
+          tar -C dist -czf "$name.tar.gz" "$name"
+          echo "ASSET=$name.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $name = "souls-like-${{ github.ref_name }}-${{ matrix.name }}"
+          New-Item -ItemType Directory -Path "dist/$name" | Out-Null
+          Copy-Item target/release/souls-like.exe "dist/$name/"
+          Copy-Item README.md, LICENSE "dist/$name/"
+          Compress-Archive -Path "dist/$name" -DestinationPath "$name.zip"
+          "ASSET=$name.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+
+  publish:
+    name: publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Checksums
+        run: cd assets && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" assets/* \
+            --repo "${{ github.repository }}" \
+            --title "Souls-like ${{ github.ref_name }}" \
+            --generate-notes \
+            --notes "Prebuilt binaries for Linux (x86_64) and Windows (x86_64). Mods are not included. Linux: extract and run install.sh. Windows: unzip and run souls-like.exe. Windows build is untested on real hardware."

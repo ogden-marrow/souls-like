@@ -14,11 +14,16 @@ pub struct Mod {
     pub sub: &'static str,
 }
 
-/// How character slots are stored in a save (BND4 `USER_DATA000..`), for games where it is understood.
+/// How character slots are stored in a save (BND4 `USER_DATA...` entries), for games where it is understood.
 pub struct SlotLayout {
     pub count: usize,
     pub key: [u8; 16],
     pub names: NameSource,
+    /// The save entries that belong to one character slot (moved together when copying).
+    pub slot_entries: fn(usize) -> Vec<String>,
+    /// The profile-summary tables that describe each slot; copying a character updates all of them.
+    /// Empty = copying single characters isn't supported for this game.
+    pub summaries: &'static [Summary],
 }
 
 /// Where a character's name lives.
@@ -26,8 +31,36 @@ pub struct SlotLayout {
 pub enum NameSource {
     /// At a fixed byte offset inside the character's own slot data.
     InSlot(usize),
-    /// In the profile summary entry (`USER_DATA010`): `first` for slot 0, then `stride` per slot.
-    Summary { first: usize, stride: usize },
+    /// In a profile summary entry: `first` is the name of slot 0, then `stride` bytes per slot.
+    Summary {
+        entry: &'static str,
+        first: usize,
+        stride: usize,
+    },
+}
+
+/// A table with one fixed-size block per slot.
+pub struct Summary {
+    pub entry: &'static str,
+    /// Offset of slot 0's character name inside the entry.
+    pub first: usize,
+    pub stride: usize,
+    /// A slot's block starts this many bytes before its name.
+    pub lead: usize,
+    /// Optional per-slot byte table at this offset (one byte per slot).
+    pub table: Option<usize>,
+}
+
+fn one_entry(i: usize) -> Vec<String> {
+    vec![format!("USER_DATA{i:03}")]
+}
+
+/// Dark Souls II: slot `i` is `USER_DATA{i+1}` plus its companion `USER_DATA{i+11}`.
+fn ds2_entries(i: usize) -> Vec<String> {
+    vec![
+        format!("USER_DATA{:03}", i + 1),
+        format!("USER_DATA{:03}", i + 11),
+    ]
 }
 
 pub struct Game {
@@ -82,7 +115,19 @@ pub static GAMES: [Game; 3] = [
                 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54,
                 0x32, 0x10,
             ],
-            names: NameSource::InSlot(264),
+            names: NameSource::Summary {
+                entry: "USER_DATA010",
+                first: 212,
+                stride: 400,
+            },
+            slot_entries: one_entry,
+            summaries: &[Summary {
+                entry: "USER_DATA010",
+                first: 212,
+                stride: 400,
+                lead: 6,
+                table: None,
+            }],
         }),
     },
     Game {
@@ -109,7 +154,35 @@ pub static GAMES: [Game; 3] = [
             ("co2", "Seamless Co-op (randomizer)"),
             ("cov", "Old test save"),
         ],
-        slots: None, // different layout; not supported yet
+        slots: Some(SlotLayout {
+            count: 10,
+            key: [
+                0x59, 0x9F, 0x9B, 0x69, 0x96, 0x40, 0xA5, 0x52, 0x36, 0xEE, 0x2D, 0x70, 0x83, 0x5E,
+                0xC7, 0x44,
+            ],
+            names: NameSource::Summary {
+                entry: "USER_DATA000",
+                first: 1306,
+                stride: 496,
+            },
+            slot_entries: ds2_entries,
+            summaries: &[
+                Summary {
+                    entry: "USER_DATA000",
+                    first: 1306,
+                    stride: 496,
+                    lead: 52,
+                    table: None,
+                },
+                Summary {
+                    entry: "USER_DATA022",
+                    first: 462,
+                    stride: 496,
+                    lead: 52,
+                    table: None,
+                },
+            ],
+        }),
     },
     Game {
         key: "ds3",
@@ -137,9 +210,18 @@ pub static GAMES: [Game; 3] = [
                 0xB7, 0xFA,
             ],
             names: NameSource::Summary {
+                entry: "USER_DATA010",
                 first: 4274,
                 stride: 554,
             },
+            slot_entries: one_entry,
+            summaries: &[Summary {
+                entry: "USER_DATA010",
+                first: 4274,
+                stride: 554,
+                lead: 0x20,
+                table: Some(0x20),
+            }],
         }),
     },
 ];

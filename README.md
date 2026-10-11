@@ -22,11 +22,10 @@ Written in Rust with [egui](https://github.com/emilk/egui). One binary, no runti
 - **Save manager**: back up, restore, copy one save slot over another, export, and trim the mod's
   auto-backups. Anything that overwrites a save backs it up first.
 - Game icons are read from each game's own `.exe` at runtime (cached locally); no game art is bundled.
-- **Characters per save**: each save lists the characters inside it (Dark Souls Remastered and Dark Souls III).
-- **Copy a single character** between saves, or into another slot of the same save (Dark Souls III,
+- **Characters per save**: each save lists the characters inside it, for all three games.
+- **Copy a single character** between saves, or into another slot of the same save (all three games,
   experimental). Pick the character, the destination save and slot; your saves are backed up first,
-  and the result is verified byte for byte before it is written. Dark Souls Remastered and Dark Souls II
-  can list/copy whole saves only for now.
+  and the result is verified byte for byte before it is written.
 - Light, dark or follow-the-system theme.
 
 ## Platforms

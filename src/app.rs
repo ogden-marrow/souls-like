@@ -961,7 +961,10 @@ impl App {
                                 Err(e) => self.say(format!("Export failed: {e}"), true),
                             }
                         }
-                        if crate::slots::can_copy(g) && small_button(ui, "Copy character…") {
+                        if crate::slots::can_copy(g)
+                            && chars.starts_with("Characters:")
+                            && small_button(ui, "Copy character…")
+                        {
                             match crate::slots::read(g, path) {
                                 Ok(Some(chars)) if !chars.is_empty() => {
                                     let dst_idx =

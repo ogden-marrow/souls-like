@@ -23,10 +23,34 @@ Written in Rust with [egui](https://github.com/emilk/egui). One binary, no runti
   auto-backups. Anything that overwrites a save backs it up first.
 - Game icons are read from each game's own `.exe` at runtime (cached locally); no game art is bundled.
 - **Characters per save**: each save lists the characters inside it, for all three games.
-- **Copy a single character** between saves, or into another slot of the same save (all three games,
-  experimental). Pick the character, the destination save and slot; your saves are backed up first,
-  and the result is verified byte for byte before it is written.
+- **Copy a single character** between saves, or into another slot of the same save, in Dark Souls
+  Remastered, **Dark Souls II** and Dark Souls III. See [Copying characters](#copying-characters).
 - Light, dark or follow-the-system theme.
+
+## Copying characters
+
+Open a game, find the save the character is in and press **Copy character…**. Pick the character, the
+destination save (it can be the same save) and the slot. It defaults to the first empty slot; if you
+pick a used slot you are warned before it is replaced.
+
+| Game | Supported | How it is stored |
+|---|---|---|
+| Dark Souls Remastered | yes | One slot entry per character, plus a 400-byte block per slot in the profile summary (`USER_DATA010`). |
+| **Dark Souls II (SotFS)** | **yes** | Each character is two entries (`USER_DATA00n` and `USER_DATA01n`), plus a 496-byte block per slot in **both** profile summaries (`USER_DATA000` and `USER_DATA022`). All four pieces are moved together. |
+| Dark Souls III | yes | One slot entry per character, plus a 554-byte block per slot in the profile summary (`USER_DATA010`). |
+
+What happens when you confirm:
+
+1. The current saves are backed up (Documents / "<game> Save Backups").
+2. The character's encrypted data is copied across untouched, and the matching summary blocks are
+   updated and re-encrypted.
+3. The new file is rebuilt in memory and checked byte for byte (the moved character equals its source,
+   every other slot is unchanged, the character list shows the copied character). Only then is it
+   written, through a temporary file, so a failure can never leave a half-written save.
+
+This is **experimental**: it has been verified against real saves, but try it on a throwaway copy first
+and keep the automatic backups. Close the game before copying. Both saves must belong to the same Steam
+account.
 
 ## Platforms
 

@@ -31,6 +31,8 @@ jobs:
       - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev libxcb1-dev libgl1-mesa-dev pkg-config
+      - name: Test
+        run: cargo test --bins --locked
       - name: Build
         run: cargo build --release --locked
 

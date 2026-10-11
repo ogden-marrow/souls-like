@@ -3,7 +3,7 @@
 //! salt, a little-endian length, the data, then PKCS#7 padding.
 
 use aes::Aes128;
-use cbc::cipher::{BlockDecryptMut, KeyIvInit, block_padding::NoPadding};
+use cbc::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit, block_padding::NoPadding};
 
 pub struct Entry {
     pub name: String,
@@ -87,4 +87,25 @@ pub fn decrypt(d: &[u8], e: &Entry, key: &[u8; 16]) -> Option<Vec<u8>> {
     }
     buf.truncate(buf.len() - pad);
     Some(buf)
+}
+
+/// Re-encrypt an entry's plaintext (as returned by [`decrypt`]) with the entry's existing IV.
+/// The result has exactly the same size as the original blob when the plaintext length is unchanged.
+pub fn encrypt(d: &[u8], e: &Entry, plain: &[u8], key: &[u8; 16]) -> Option<Vec<u8>> {
+    let iv: [u8; 16] = d.get(e.offset..e.offset + 16)?.try_into().ok()?;
+    let pad = 16 - plain.len() % 16;
+    let mut buf = plain.to_vec();
+    buf.extend(std::iter::repeat_n(pad as u8, pad));
+    let len = buf.len();
+    cbc::Encryptor::<Aes128>::new(key.into(), (&iv).into())
+        .encrypt_padded_mut::<NoPadding>(&mut buf, len)
+        .ok()?;
+    let mut out = iv.to_vec();
+    out.extend_from_slice(&buf);
+    Some(out)
+}
+
+/// The raw (still encrypted) bytes of an entry.
+pub fn blob<'a>(d: &'a [u8], e: &Entry) -> &'a [u8] {
+    &d[e.offset..e.offset + e.size]
 }

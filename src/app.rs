@@ -331,6 +331,17 @@ enum Dialog {
         gi: usize,
         files: Vec<PathBuf>,
     },
+    CopyChar {
+        gi: usize,
+        src: PathBuf,
+        src_ext: String,
+        src_slots: Vec<(usize, String)>,
+        src_pick: usize,
+        dst_idx: usize,
+        dst_loaded: Option<usize>,
+        dst_slots: Vec<Option<String>>,
+        dst_slot: usize,
+    },
 }
 
 struct Pending {
@@ -948,6 +959,30 @@ impl App {
                             match std::fs::copy(path, &dest) {
                                 Ok(_) => self.say(format!("Exported to {}", dest.display()), false),
                                 Err(e) => self.say(format!("Export failed: {e}"), true),
+                            }
+                        }
+                        if crate::slots::can_copy(g) && small_button(ui, "Copy character…") {
+                            match crate::slots::read(g, path) {
+                                Ok(Some(chars)) if !chars.is_empty() => {
+                                    let dst_idx =
+                                        list.iter().position(|l| l.0 != *path).unwrap_or(0);
+                                    self.dialog = Some(Dialog::CopyChar {
+                                        gi,
+                                        src: path.clone(),
+                                        src_ext: ext.clone(),
+                                        src_slots: chars
+                                            .into_iter()
+                                            .map(|c| (c.index, c.name))
+                                            .collect(),
+                                        src_pick: 0,
+                                        dst_idx,
+                                        dst_loaded: None,
+                                        dst_slots: vec![],
+                                        dst_slot: 0,
+                                    });
+                                }
+                                Ok(_) => self.say("This save has no characters to copy.", true),
+                                Err(e) => self.say(format!("Could not read this save: {e}"), true),
                             }
                         }
                         if small_button(ui, "Copy over…") && list.len() > 0 {
@@ -1569,6 +1604,69 @@ impl App {
                         ui.radio_value(fi, i, format!(".{ext}  {}", g.label(&ext)));
                     }
                 }
+                Dialog::CopyChar {
+                    gi,
+                    src_ext,
+                    src_slots,
+                    src_pick,
+                    dst_idx,
+                    dst_loaded,
+                    dst_slots,
+                    dst_slot,
+                    ..
+                } => {
+                    let g = &GAMES[*gi];
+                    let saves = &self.views[*gi].saves;
+                    ui.label(RichText::new("Copy a character").size(16.0).family(bold()));
+                    ui.label(RichText::new(format!("Copies one character from the .{src_ext} save into a slot of any save. A backup is made first.")).color(p.dim));
+                    ui.add_space(4.0);
+                    ui.label(RichText::new("Character").size(12.0).color(p.dim));
+                    egui::ComboBox::from_id_salt("cc_src")
+                        .width(340.0)
+                        .selected_text(format!("Slot {} · {}", src_slots[*src_pick].0 + 1, src_slots[*src_pick].1))
+                        .show_ui(ui, |ui| {
+                            for (i, (slot, name)) in src_slots.iter().enumerate() {
+                                ui.selectable_value(src_pick, i, format!("Slot {} · {}", slot + 1, name));
+                            }
+                        });
+                    ui.label(RichText::new("Into save").size(12.0).color(p.dim));
+                    egui::ComboBox::from_id_salt("cc_dst")
+                        .width(340.0)
+                        .selected_text(match saves.get(*dst_idx) {
+                            Some(s) => format!(".{}  {}", s.ext, g.label(&s.ext)),
+                            None => "—".into(),
+                        })
+                        .show_ui(ui, |ui| {
+                            for (i, s) in saves.iter().enumerate() {
+                                ui.selectable_value(dst_idx, i, format!(".{}  {}", s.ext, g.label(&s.ext)));
+                            }
+                        });
+                    if *dst_loaded != Some(*dst_idx) {
+                        *dst_slots = saves
+                            .get(*dst_idx)
+                            .and_then(|s| crate::slots::occupants(g, &s.path).ok())
+                            .unwrap_or_default();
+                        *dst_loaded = Some(*dst_idx);
+                        // default to the first empty slot so nothing is replaced by accident
+                        *dst_slot = dst_slots.iter().position(|o| o.is_none()).unwrap_or(0);
+                    }
+                    ui.label(RichText::new("Into slot").size(12.0).color(p.dim));
+                    let slot_label = |i: usize| match dst_slots.get(i) {
+                        Some(Some(n)) => format!("Slot {} · {}  (will be replaced)", i + 1, n),
+                        _ => format!("Slot {} · empty", i + 1),
+                    };
+                    egui::ComboBox::from_id_salt("cc_slot")
+                        .width(340.0)
+                        .selected_text(slot_label(*dst_slot))
+                        .show_ui(ui, |ui| {
+                            for i in 0..dst_slots.len() {
+                                ui.selectable_value(dst_slot, i, slot_label(i));
+                            }
+                        });
+                    if matches!(dst_slots.get(*dst_slot), Some(Some(_))) {
+                        ui.label(RichText::new("The character in that slot is overwritten. You can restore it from the backup.").size(12.0).color(p.warn));
+                    }
+                }
                 Dialog::Clean { files, .. } => {
                     ui.label(RichText::new("Clean auto-backups").size(16.0).family(bold()));
                     ui.label(RichText::new(format!("Keeps the newest 5 of {} Seamless Co-op auto-backups and deletes the rest.", files.len())).color(p.dim));
@@ -1656,6 +1754,40 @@ impl App {
                         false,
                     ),
                     Err(e) => self.say(format!("Restore failed: {e}"), true),
+                }
+                self.refresh(gi);
+            }
+            Dialog::CopyChar {
+                gi,
+                src,
+                src_slots,
+                src_pick,
+                dst_idx,
+                dst_slot,
+                ..
+            } => {
+                let g = &GAMES[gi];
+                let Some(dst) = self.views[gi].saves.get(dst_idx).map(|s| s.path.clone()) else {
+                    return;
+                };
+                let Some(root) = self.views[gi].save_root.clone() else {
+                    return;
+                };
+                let Some((slot, name)) = src_slots.get(src_pick).cloned() else {
+                    return;
+                };
+                if game_running_check(g) {
+                    return self.say(format!("Close {} first", g.name), true);
+                }
+                if dst == src && slot == dst_slot {
+                    return self.say("Pick a different slot or save.", true);
+                }
+                if let Err(e) = saves::backup(g, &root, "before-character-copy") {
+                    return self.say(format!("Backup failed, nothing was changed: {e}"), true);
+                }
+                match crate::slots::copy_slot(g, &src, slot, &dst, dst_slot) {
+                    Ok(()) => self.say(format!("Copied {name} to slot {}", dst_slot + 1), false),
+                    Err(e) => self.say(format!("Nothing was changed: {e}"), true),
                 }
                 self.refresh(gi);
             }
@@ -1833,6 +1965,37 @@ mod shots {
                 ("shared", Page::Shared),
                 ("settings", Page::Settings),
             ];
+            // character-copy dialog on the DS3 page
+            {
+                let st = h.state_mut();
+                if let Some(first) = st.views[2].saves.first() {
+                    let src = first.path.clone();
+                    let chars = crate::slots::read(&GAMES[2], &src)
+                        .ok()
+                        .flatten()
+                        .unwrap_or_default();
+                    st.dialog = Some(Dialog::CopyChar {
+                        gi: 2,
+                        src_ext: first.ext.clone(),
+                        src,
+                        src_slots: chars.into_iter().map(|c| (c.index, c.name)).collect(),
+                        src_pick: 0,
+                        dst_idx: 1,
+                        dst_loaded: None,
+                        dst_slots: vec![],
+                        dst_slot: 0,
+                    });
+                    st.page = Page::Game(2);
+                }
+                h.run();
+                let img = h.render().expect("render");
+                img.save(format!(
+                    "{dir}/{}-copychar.png",
+                    if dark { "dark" } else { "light" }
+                ))
+                .unwrap();
+                h.state_mut().dialog = None;
+            }
             for (name, page) in pages {
                 h.state_mut().page = page;
                 h.run();

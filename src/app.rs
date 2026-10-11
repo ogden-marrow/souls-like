@@ -350,6 +350,8 @@ pub struct App {
     pw: [String; 3],
     shared_vals: BTreeMap<String, String>,
     ctx: egui::Context,
+    icons: [Option<egui::TextureHandle>; 3],
+    icon_tried: [bool; 3],
 }
 
 impl App {
@@ -381,6 +383,8 @@ impl App {
             pw: Default::default(),
             shared_vals: BTreeMap::new(),
             ctx: ctx.clone(),
+            icons: Default::default(),
+            icon_tried: [false; 3],
         };
         app.refresh_all();
         app.load_texts();
@@ -412,9 +416,32 @@ impl App {
         };
     }
 
+    fn ensure_icon(&mut self, gi: usize) {
+        if self.icons[gi].is_some() || self.icon_tried[gi] {
+            return;
+        }
+        let Some(loc) = self.views[gi].loc.as_ref() else {
+            return;
+        };
+        self.icon_tried[gi] = true;
+        let g = &GAMES[gi];
+        if let Some(img) = crate::gameicon::load(g.key, &loc.game_dir.join(g.proc_name)) {
+            let ci = egui::ColorImage::from_rgba_unmultiplied(
+                [img.width() as usize, img.height() as usize],
+                img.as_raw(),
+            );
+            self.icons[gi] = Some(self.ctx.load_texture(
+                format!("icon-{}", g.key),
+                ci,
+                egui::TextureOptions::LINEAR,
+            ));
+        }
+    }
+
     fn refresh_all(&mut self) {
         for gi in 0..3 {
             self.refresh(gi);
+            self.ensure_icon(gi);
         }
         self.last_refresh = Instant::now();
     }
@@ -522,22 +549,29 @@ impl App {
             painter.rect_filled(rect, 8, p.line);
         }
         let badge = egui::Rect::from_min_size(rect.min + vec2(8.0, 9.0), vec2(28.0, 28.0));
-        painter.rect_filled(
-            badge,
-            7,
-            if sel {
-                Color32::from_white_alpha(56)
-            } else {
-                game_color(g)
-            },
-        );
-        painter.text(
-            badge.center(),
-            Align2::CENTER_CENTER,
-            roman(gi),
-            FontId::proportional(13.0),
-            Color32::WHITE,
-        );
+        if let Some(tex) = &self.icons[gi] {
+            egui::Image::new(tex)
+                .fit_to_exact_size(badge.size())
+                .corner_radius(7)
+                .paint_at(ui, badge);
+        } else {
+            painter.rect_filled(
+                badge,
+                7,
+                if sel {
+                    Color32::from_white_alpha(56)
+                } else {
+                    game_color(g)
+                },
+            );
+            painter.text(
+                badge.center(),
+                Align2::CENTER_CENTER,
+                roman(gi),
+                FontId::proportional(13.0),
+                Color32::WHITE,
+            );
+        }
         let v = &self.views[gi];
         let sub = if v.running {
             "● Running".to_string()
@@ -623,6 +657,14 @@ impl App {
 
         // header
         ui.horizontal(|ui| {
+            if let Some(tex) = &self.icons[gi] {
+                ui.add(
+                    egui::Image::new(tex)
+                        .fit_to_exact_size(vec2(56.0, 56.0))
+                        .corner_radius(13),
+                );
+                ui.add_space(6.0);
+            }
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.y = 4.0;
                 ui.label(RichText::new(g.name).size(30.0).family(bold()));
@@ -1728,6 +1770,12 @@ mod shots {
                         if first {
                             // fonts take effect on the next frame
                             install_style(ui.ctx());
+                            app.ctx = ui.ctx().clone();
+                            app.icons = Default::default();
+                            app.icon_tried = [false; 3];
+                            for gi in 0..3 {
+                                app.ensure_icon(gi);
+                            }
                             first = false;
                             return;
                         }

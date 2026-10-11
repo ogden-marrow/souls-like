@@ -21,6 +21,7 @@ Written in Rust with [egui](https://github.com/emilk/egui). One binary, no runti
   every game's Seamless Co-op settings file (per-setting opt-out; the save extension is never mirrored).
 - **Save manager**: back up, restore, copy one save slot over another, export, and trim the mod's
   auto-backups. Anything that overwrites a save backs it up first.
+- Game icons are read from each game's own `.exe` at runtime (cached locally); no game art is bundled.
 - Light, dark or follow-the-system theme.
 
 ## Platforms

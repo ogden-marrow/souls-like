@@ -1,6 +1,50 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="28" fill="#1c1c1e"/>
-  <path d="M64 20c5 17 24 26 24 48a24 24 0 0 1-48 0c0-9 4-15 9-21 2 7 7 11 11 11-3-12-1-27 4-38z" fill="#ff8a3d"/>
-  <path d="M64 62c3 8 12 12 12 22a12 12 0 0 1-24 0c0-5 2-8 5-11 1 4 4 6 6 6-1-6-1-12 1-17z" fill="#ffd9a8"/>
-  <rect x="34" y="104" width="60" height="6" rx="3" fill="#8e8e93"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1a12"/>
+      <stop offset="1" stop-color="#0c0807"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="62%" r="55%">
+      <stop offset="0" stop-color="#ff7a1f" stop-opacity=".85"/>
+      <stop offset=".45" stop-color="#d0460f" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#d0460f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="flame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ff5a14"/>
+      <stop offset=".6" stop-color="#ff9a2e"/>
+      <stop offset="1" stop-color="#ffd27a"/>
+    </linearGradient>
+    <linearGradient id="blade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8d857a"/>
+      <stop offset=".5" stop-color="#f1ebe0"/>
+      <stop offset="1" stop-color="#8d857a"/>
+    </linearGradient>
+    <clipPath id="r"><rect width="512" height="512" rx="112"/></clipPath>
+  </defs>
+  <g clip-path="url(#r)">
+    <rect width="512" height="512" fill="url(#bg)"/>
+    <rect width="512" height="512" fill="url(#glow)"/>
+    <!-- flames -->
+    <path d="M256 70c14 52 74 82 74 150 0 52-34 90-74 90s-74-38-74-90c0-30 14-52 30-72 4 24 18 38 34 40-10-44-2-86 10-118z" fill="url(#flame)" opacity=".95"/>
+    <path d="M256 150c8 30 44 48 44 92 0 34-20 56-44 56s-44-22-44-56c0-18 8-30 18-42 2 14 10 22 20 24-6-26-2-52 6-74z" fill="#ffe9b0" opacity=".9"/>
+    <!-- sword -->
+    <path d="M256 104l15 34v176h-30V138z" fill="url(#blade)"/>
+    <path d="M256 112v196" stroke="#6e675d" stroke-width="3" opacity=".6"/>
+    <!-- coil -->
+    <path d="M214 196c26-20 66-6 90-26" fill="none" stroke="#a79e90" stroke-width="13" stroke-linecap="round"/>
+    <path d="M208 240c30-22 76-6 98-28" fill="none" stroke="#a79e90" stroke-width="13" stroke-linecap="round"/>
+    <path d="M206 284c32-22 82-6 102-30" fill="none" stroke="#a79e90" stroke-width="13" stroke-linecap="round"/>
+    <path d="M214 196c26-20 66-6 90-26" fill="none" stroke="#e8e0d2" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+    <path d="M208 240c30-22 76-6 98-28" fill="none" stroke="#e8e0d2" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+    <path d="M206 284c32-22 82-6 102-30" fill="none" stroke="#e8e0d2" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+    <!-- hilt buried in ash -->
+    <rect x="244" y="312" width="24" height="46" rx="6" fill="#5b4a3a"/>
+    <path d="M96 396c40-44 100-58 160-58s120 14 160 58c0 30-72 50-160 50S96 426 96 396z" fill="#1b1411"/>
+    <path d="M120 392c36-34 90-46 136-46s100 12 136 46c-30 26-82 38-136 38s-106-12-136-38z" fill="#3a2a22"/>
+    <ellipse cx="256" cy="372" rx="64" ry="14" fill="#ff7a1f" opacity=".75"/>
+    <!-- embers -->
+    <circle cx="170" cy="150" r="5" fill="#ffb347"/><circle cx="352" cy="120" r="4" fill="#ffb347"/>
+    <circle cx="372" cy="210" r="3.5" fill="#ff8a3d"/><circle cx="148" cy="228" r="3.5" fill="#ff8a3d"/>
+    <circle cx="326" cy="70" r="3" fill="#ffd27a"/><circle cx="198" cy="84" r="3" fill="#ffd27a"/>
+  </g>
 </svg>

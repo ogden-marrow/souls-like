@@ -1,17 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs><clipPath id="r"><rect width="512" height="512" rx="112"/></clipPath></defs>
+  <defs>
+    <clipPath id="r"><rect width="512" height="512" rx="116"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="55%" r="75%">
+      <stop offset="0" stop-color="#ff7a1c"/>
+      <stop offset="1" stop-color="#f05a0a"/>
+    </radialGradient>
+  </defs>
   <g clip-path="url(#r)">
-    <rect width="512" height="512" fill="#f7640f"/>
-    <g fill="#7f4420">
-      <g transform="rotate(16 256 300)">
-        <circle cx="256" cy="104" r="15"/>
-        <rect x="249" y="116" width="14" height="56" rx="3"/>
-        <path d="M188 172h136l-58 36-10-16-10 16z"/>
-        <rect x="236" y="204" width="15" height="196" rx="2"/>
-        <rect x="262" y="204" width="15" height="196" rx="2"/>
+    <rect width="512" height="512" fill="url(#bg)"/>
+    <g fill="#7a3f1c">
+      <!-- flames -->
+      <path d="M176 396C118 380 106 318 148 250c4 26 16 42 36 58 20 16 32 34 32 56 0 12-4 22-12 32z"/>
+      <path d="M318 396c34-8 56-34 54-70-2-12-6-22-12-30 32 22 42 62 22 100z"/>
+      <!-- ash mound -->
+      <path d="M112 424c26-26 78-42 144-42s118 16 144 42c-38 20-90 28-144 28s-106-8-144-28z"/>
+      <!-- sword -->
+      <g transform="rotate(15 256 300)">
+        <circle cx="256" cy="106" r="15"/>
+        <rect x="249" y="118" width="14" height="58" rx="7"/>
+        <path d="M196 176c20-4 100-4 120 0-8 14-30 28-52 36-2-8-4-12-8-12s-6 4-8 12c-22-8-44-22-52-36z"/>
+        <rect x="236" y="206" width="16" height="190" rx="8"/>
+        <rect x="262" y="206" width="16" height="190" rx="8"/>
       </g>
-      <path d="M146 398C98 362 108 296 146 238c0 56 40 90 68 112 28 22 72 22 102 6 24-14 40-34 50-60 26 42 6 88-28 102z"/>
-      <path d="M112 428l40-32h208l42 32z"/>
     </g>
   </g>
 </svg>

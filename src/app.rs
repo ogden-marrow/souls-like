@@ -308,6 +308,8 @@ struct View {
     save_base: Option<PathBuf>,
     save_root: Option<PathBuf>,
     saves: Vec<saves::SaveFile>,
+    /// One line per save listing its characters (empty when the game's layout isn't supported).
+    chars: Vec<String>,
     backups: Vec<saves::Backup>,
     running: bool,
     seamless: bool,
@@ -352,6 +354,7 @@ pub struct App {
     ctx: egui::Context,
     icons: [Option<egui::TextureHandle>; 3],
     icon_tried: [bool; 3],
+    char_cache: std::collections::HashMap<PathBuf, (std::time::SystemTime, u64, String)>,
 }
 
 impl App {
@@ -385,6 +388,7 @@ impl App {
             ctx: ctx.clone(),
             icons: Default::default(),
             icon_tried: [false; 3],
+            char_cache: Default::default(),
         };
         app.refresh_all();
         app.load_texts();
@@ -402,7 +406,9 @@ impl App {
         let base = platform::save_base_dir(g, loc.as_ref(), &st.save_dir);
         let root = base.as_ref().and_then(|b| saves::find_root(g, b));
         let list = root.as_ref().map(|r| saves::list(g, r)).unwrap_or_default();
+        let chars: Vec<String> = list.iter().map(|f| self.characters_line(g, f)).collect();
         self.views[gi] = View {
+            chars,
             seamless: loc
                 .as_ref()
                 .map(|l| launch::has_seamless(g, &l.game_dir))
@@ -414,6 +420,33 @@ impl App {
             save_base: base,
             loc,
         };
+    }
+
+    /// "Characters: A · B" for a save, cached until the file changes.
+    fn characters_line(&mut self, g: &Game, f: &saves::SaveFile) -> String {
+        if g.slots.is_none() {
+            return String::new();
+        }
+        if let Some((m, sz, text)) = self.char_cache.get(&f.path) {
+            if *m == f.modified && *sz == f.size {
+                return text.clone();
+            }
+        }
+        let text = match crate::slots::read(g, &f.path) {
+            Ok(Some(v)) if v.is_empty() => "No characters".to_string(),
+            Ok(Some(v)) => format!(
+                "Characters: {}",
+                v.iter()
+                    .map(|s| s.name.clone())
+                    .collect::<Vec<_>>()
+                    .join(" · ")
+            ),
+            Ok(None) => String::new(),
+            Err(_) => "Characters: couldn't read this save".to_string(),
+        };
+        self.char_cache
+            .insert(f.path.clone(), (f.modified, f.size, text.clone()));
+        text
     }
 
     fn ensure_icon(&mut self, gi: usize) {
@@ -859,10 +892,11 @@ impl App {
                 self.refresh(gi);
             }
         });
-        let list: Vec<(PathBuf, String, u64, std::time::SystemTime)> = self.views[gi]
+        let list: Vec<(PathBuf, String, u64, std::time::SystemTime, String)> = self.views[gi]
             .saves
             .iter()
-            .map(|s| (s.path.clone(), s.ext.clone(), s.size, s.modified))
+            .zip(self.views[gi].chars.iter())
+            .map(|(s, c)| (s.path.clone(), s.ext.clone(), s.size, s.modified, c.clone()))
             .collect();
         card(ui, &p, |ui| {
             if list.is_empty() {
@@ -881,7 +915,7 @@ impl App {
                     |_| {},
                 );
             }
-            for (i, (path, ext, size, modified)) in list.iter().enumerate() {
+            for (i, (path, ext, size, modified, chars)) in list.iter().enumerate() {
                 row(
                     ui,
                     &p,
@@ -900,6 +934,9 @@ impl App {
                             .size(12.0)
                             .color(p.dim),
                         );
+                        if !chars.is_empty() {
+                            ui.label(RichText::new(chars).size(12.0).color(p.text));
+                        }
                     },
                     |ui| {
                         if small_button(ui, "Export") {

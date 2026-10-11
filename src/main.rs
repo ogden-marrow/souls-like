@@ -1,6 +1,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod app;
+mod bnd4;
 mod config;
 mod gameicon;
 mod games;
@@ -10,6 +11,7 @@ mod modinstall;
 mod platform;
 mod saves;
 mod shared;
+mod slots;
 
 fn main() -> eframe::Result {
     let opts = eframe::NativeOptions {

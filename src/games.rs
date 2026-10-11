@@ -14,6 +14,22 @@ pub struct Mod {
     pub sub: &'static str,
 }
 
+/// How character slots are stored in a save (BND4 `USER_DATA000..`), for games where it is understood.
+pub struct SlotLayout {
+    pub count: usize,
+    pub key: [u8; 16],
+    pub names: NameSource,
+}
+
+/// Where a character's name lives.
+#[derive(Clone, Copy)]
+pub enum NameSource {
+    /// At a fixed byte offset inside the character's own slot data.
+    InSlot(usize),
+    /// In the profile summary entry (`USER_DATA010`): `first` for slot 0, then `stride` per slot.
+    Summary { first: usize, stride: usize },
+}
+
 pub struct Game {
     pub key: &'static str,
     pub name: &'static str,
@@ -31,6 +47,7 @@ pub struct Game {
     pub accent: [u8; 3],
     pub mods: &'static [Mod],
     pub labels: &'static [(&'static str, &'static str)],
+    pub slots: Option<SlotLayout>,
 }
 
 impl Game {
@@ -59,6 +76,14 @@ pub static GAMES: [Game; 3] = [
         accent: [200, 85, 61],
         mods: &[],
         labels: &[("sl2", "Normal game"), ("co2", "Seamless Co-op")],
+        slots: Some(SlotLayout {
+            count: 10,
+            key: [
+                0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54,
+                0x32, 0x10,
+            ],
+            names: NameSource::InSlot(264),
+        }),
     },
     Game {
         key: "ds2",
@@ -84,6 +109,7 @@ pub static GAMES: [Game; 3] = [
             ("co2", "Seamless Co-op (randomizer)"),
             ("cov", "Old test save"),
         ],
+        slots: None, // different layout; not supported yet
     },
     Game {
         key: "ds3",
@@ -104,5 +130,16 @@ pub static GAMES: [Game; 3] = [
             sub: "Item and gear shop from the Firelink corpse. Changes the game itself, so use it with co-op only",
         }],
         labels: &[("sl2", "Normal game"), ("co2", "Seamless Co-op")],
+        slots: Some(SlotLayout {
+            count: 10,
+            key: [
+                0xFD, 0x46, 0x4D, 0x69, 0x5E, 0x69, 0xA3, 0x9A, 0x10, 0xE3, 0x19, 0xA7, 0xAC, 0xE8,
+                0xB7, 0xFA,
+            ],
+            names: NameSource::Summary {
+                first: 4274,
+                stride: 554,
+            },
+        }),
     },
 ];

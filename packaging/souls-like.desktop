@@ -7,3 +7,4 @@ Icon=souls-like
 Categories=Game;
 Terminal=false
 StartupWMClass=souls-like
+StartupNotify=true

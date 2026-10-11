@@ -1532,6 +1532,20 @@ impl App {
                     title_sub(
                         ui,
                         &p,
+                        "Version",
+                        &format!("Souls-like v{}", env!("CARGO_PKG_VERSION")),
+                    )
+                },
+                |_| {},
+            );
+            row(
+                ui,
+                &p,
+                false,
+                |ui| {
+                    title_sub(
+                        ui,
+                        &p,
                         "Platform",
                         if platform::OS_SUPPORTED {
                             "Games launch through Steam"

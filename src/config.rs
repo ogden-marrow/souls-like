@@ -1,5 +1,3 @@
-//! Persistent settings (per-user JSON).
-
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -7,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Default)]
 pub enum Mode {
     Vanilla,
     #[default]
@@ -19,9 +17,7 @@ pub enum Mode {
 pub struct GameState {
     pub mode: Mode,
     pub mods: BTreeMap<String, bool>,
-    /// Optional manual override of the folder holding the save files (macOS bottles, synced folders...).
     pub save_dir: String,
-    /// Optional manual override of the game's install folder.
     pub game_dir: String,
 }
 
@@ -29,57 +25,39 @@ pub struct GameState {
 #[serde(default)]
 pub struct Config {
     pub last: String,
-    /// "system" | "light" | "dark"
     pub theme: String,
     pub games: BTreeMap<String, GameState>,
-    /// Mirror the shared co-op settings across every game's Seamless Co-op settings file.
     pub mirror: bool,
-    /// Values the user set on the shared-settings page (applied to each game at launch while mirroring).
     pub shared: BTreeMap<String, String>,
-    /// Shared settings the user opted out of mirroring.
     pub unsynced: BTreeSet<String>,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config {
-            last: String::new(),
-            theme: "system".into(),
-            games: BTreeMap::new(),
-            mirror: true,
-            shared: BTreeMap::new(),
-            unsynced: BTreeSet::new(),
-        }
+        Config { last: String::new(), theme: "system".into(), games: BTreeMap::new(), mirror: true, shared: BTreeMap::new(), unsynced: BTreeSet::new() }
     }
 }
 
-pub fn config_path() -> PathBuf {
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("souls-like")
-        .join("config.json")
+fn app_dir(base: Option<PathBuf>) -> PathBuf {
+    base.unwrap_or_default().join("souls-like")
 }
 
 pub fn log_dir() -> PathBuf {
-    dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("souls-like")
-        .join("logs")
+    app_dir(dirs::data_dir()).join("logs")
 }
 
 impl Config {
+    fn path() -> PathBuf {
+        app_dir(dirs::config_dir()).join("config.json")
+    }
+
     pub fn load() -> Config {
-        fs::read_to_string(config_path())
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
+        fs::read_to_string(Self::path()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
     }
 
     pub fn save(&self) {
-        let p = config_path();
-        if let Some(d) = p.parent() {
-            let _ = fs::create_dir_all(d);
-        }
+        let p = Self::path();
+        let _ = fs::create_dir_all(p.parent().unwrap_or(&p));
         if let Ok(s) = serde_json::to_string_pretty(self) {
             let _ = fs::write(p, s);
         }

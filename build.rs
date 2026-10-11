@@ -1,4 +1,3 @@
-// Embed the app icon into the Windows executable.
 fn main() {
     #[cfg(windows)]
     {

@@ -1,7 +1,5 @@
 name: CI
 
-# Tests only. Binaries are built and published by release.yml when a version tag is pushed.
-
 on:
   push:
     branches: [main]

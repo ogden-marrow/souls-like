@@ -1,6 +1,5 @@
 name: Release
 
-# Push a tag like v0.1.0 to build Linux and Windows binaries and publish them as a GitHub release.
 on:
   push:
     tags: ["v*"]
@@ -20,7 +19,7 @@ jobs:
       matrix:
         include:
           - name: linux-x86_64
-            os: ubuntu-22.04 # older glibc so the binary runs on more distros
+            os: ubuntu-22.04
           - name: windows-x86_64
             os: windows-latest
     runs-on: ${{ matrix.os }}
@@ -47,7 +46,6 @@ jobs:
           rm -f "dist/$name/packaging/install-linux.sh"
           cat > "dist/$name/install.sh" <<'SH'
           #!/usr/bin/env bash
-          # Installs the prebuilt binary, icon and app-menu entry for the current user.
           set -euo pipefail
           cd "$(dirname "$0")"
           install -Dm755 souls-like "$HOME/.local/bin/souls-like"

@@ -117,8 +117,28 @@ pub fn running(names: &[&str]) -> Vec<bool> {
     }
     #[cfg(windows)]
     {
-        let out = hidden(Command::new("tasklist").arg("/NH")).output().map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase()).unwrap_or_default();
-        names.iter().map(|n| out.contains(&n.to_lowercase())).collect()
+        use windows_sys::Win32::{
+            Foundation::CloseHandle,
+            System::Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS},
+        };
+        let wanted: Vec<String> = names.iter().map(|n| n.to_lowercase()).collect();
+        let mut found = vec![false; names.len()];
+        unsafe {
+            let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            let mut entry: PROCESSENTRY32W = std::mem::zeroed();
+            entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+            let mut more = Process32FirstW(snapshot, &mut entry);
+            while more != 0 {
+                let len = entry.szExeFile.iter().position(|c| *c == 0).unwrap_or(entry.szExeFile.len());
+                let exe = String::from_utf16_lossy(&entry.szExeFile[..len]).to_lowercase();
+                for (f, w) in found.iter_mut().zip(&wanted) {
+                    *f |= exe == *w;
+                }
+                more = Process32NextW(snapshot, &mut entry);
+            }
+            CloseHandle(snapshot);
+        }
+        found
     }
     #[cfg(target_os = "macos")]
     names.iter().map(|n| quiet(Command::new("pgrep").args(["-f", n])).status().is_ok_and(|s| s.success())).collect()
@@ -131,15 +151,14 @@ pub fn running_games() -> [bool; 3] {
 
 pub fn launch_via_steam(game: &Game) -> Result<(), String> {
     let uri = format!("steam://rungameid/{}", game.appid);
-    let mut cmd = if cfg!(windows) {
-        let mut c = Command::new("cmd");
-        c.args(["/C", "start", "", &uri]);
-        c
+    let mut cmd = Command::new(if cfg!(windows) {
+        "explorer"
+    } else if cfg!(target_os = "macos") {
+        "open"
     } else {
-        let mut c = Command::new(if cfg!(target_os = "macos") { "open" } else { "steam" });
-        c.arg(&uri);
-        c
-    };
+        "steam"
+    });
+    cmd.arg(&uri);
     hidden(quiet(&mut cmd)).spawn().map(drop).map_err(|e| format!("Could not start Steam: {e}"))
 }
 

@@ -2328,7 +2328,7 @@ dependencies = [
 
 [[package]]
 name = "souls-like"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "aes",
  "cbc",
@@ -2340,6 +2340,7 @@ dependencies = [
  "rfd",
  "serde",
  "serde_json",
+ "windows-sys 0.61.2",
  "winreg",
  "winresource",
  "zip",

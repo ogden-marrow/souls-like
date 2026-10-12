@@ -74,7 +74,8 @@ cargo build --release
 ```
 
 On Linux you need the usual windowing libraries (`libxkbcommon`, `libwayland`, `libx11`, OpenGL).
-`packaging/install-linux.sh` builds and installs a launcher entry for your user.
+On Linux, run `./souls-like --install` once (from the download or after `cargo build --release`) to copy it to `~/.local/bin` and add an app-menu entry.
+Every release is built by GitHub Actions with a signed build-provenance attestation: `gh attestation verify <zip> --repo ogden-marrow/souls-like`.
 
 ## Safety
 
@@ -86,3 +87,9 @@ This project is not affiliated with or endorsed by FromSoftware, Bandai Namco or
 
 MIT, see [LICENSE](LICENSE). Bundled Noto Sans fonts are under the SIL OFL 1.1, see
 [assets/fonts/README.md](assets/fonts/README.md).
+
+## Antivirus warnings
+
+The Windows exe is not code-signed, and unsigned programs that start other programs or edit game files are sometimes flagged by heuristic scanners.
+Souls-like only launches Steam and the game, reads and writes your saves and the mod folders, and makes no network connections.
+Compare the zip's SHA-256 with `SHA256SUMS.txt` on the release page, or build it yourself from this repository.

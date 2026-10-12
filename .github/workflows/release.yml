@@ -10,6 +10,8 @@ env:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build:
@@ -37,30 +39,11 @@ jobs:
 
       - name: Package (Linux)
         if: runner.os == 'Linux'
-        shell: bash
         run: |
           name=souls-like-${{ github.ref_name }}-${{ matrix.name }}
-          mkdir -p "dist/$name"
-          cp target/release/souls-like "dist/$name/"
-          cp -r packaging README.md LICENSE "dist/$name/"
-          rm -f "dist/$name/packaging/install-linux.sh"
-          cat > "dist/$name/install.sh" <<'SH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          cd "$(dirname "$0")"
-          install -Dm755 souls-like "$HOME/.local/bin/souls-like"
-          install -Dm644 packaging/souls-like.svg "$HOME/.local/share/icons/hicolor/scalable/apps/souls-like.svg"
-          for n in 16 32 48 64 128 256 512; do
-            install -Dm644 "packaging/icons/$n.png" "$HOME/.local/share/icons/hicolor/${n}x${n}/apps/souls-like.png"
-          done
-          sed -e "s|^Exec=.*|Exec=$HOME/.local/bin/souls-like|" \
-              -e "s|^Icon=.*|Icon=$HOME/.local/share/icons/hicolor/256x256/apps/souls-like.png|" \
-              packaging/souls-like.desktop > "$HOME/.local/share/applications/souls-like.desktop"
-          update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
-          echo "Installed. Launch Souls-like from your app menu."
-          SH
-          chmod +x "dist/$name/install.sh"
-          (cd dist && zip -qr "../$name.zip" "$name")
+          mkdir dist
+          cp target/release/souls-like LICENSE dist/
+          (cd dist && zip -q "../$name.zip" *)
           echo "ASSET=$name.zip" >> "$GITHUB_ENV"
 
       - name: Package (Windows)
@@ -68,11 +51,14 @@ jobs:
         shell: pwsh
         run: |
           $name = "souls-like-${{ github.ref_name }}-${{ matrix.name }}"
-          New-Item -ItemType Directory -Path "dist/$name" | Out-Null
-          Copy-Item target/release/souls-like.exe "dist/$name/"
-          Copy-Item README.md, LICENSE "dist/$name/"
-          Compress-Archive -Path "dist/$name" -DestinationPath "$name.zip"
+          New-Item -ItemType Directory -Path dist | Out-Null
+          Copy-Item target/release/souls-like.exe, LICENSE dist/
+          Compress-Archive -Path dist/* -DestinationPath "$name.zip"
           "ASSET=$name.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ env.ASSET }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -100,7 +86,7 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "Souls-like ${{ github.ref_name }}" \
             --generate-notes \
-            --notes "Prebuilt binaries for Linux (x86_64) and Windows (x86_64). Mods are not included. Linux: extract and run install.sh. Windows: unzip and run souls-like.exe. Windows build is untested on real hardware."
+            --notes "Prebuilt binaries for Linux (x86_64) and Windows (x86_64). Mods are not included. Linux: unzip, then run ./souls-like --install once to add it to your app menu. Windows: unzip and run souls-like.exe. Windows build is untested on real hardware."
 
   nexus:
     name: nexus (${{ matrix.game }}, ${{ matrix.os }})

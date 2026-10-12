@@ -1,0 +1,30 @@
+name: Nexus file IDs
+
+on:
+  workflow_dispatch:
+    inputs:
+      game:
+        description: Nexus game domain
+        required: true
+      mod:
+        description: Mod number from the page URL
+        required: true
+
+jobs:
+  ids:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+          GAME: ${{ inputs.game }}
+          MOD: ${{ inputs.mod }}
+        run: |
+          api() { curl -sS -w '\n%{http_code}' -H "apikey: $KEY" -H "User-Agent: souls-like-ci" "https://api.nexusmods.com/v3$1"; }
+          out=$(api "/games/$GAME/mods/$MOD"); code=${out##*$'\n'}; body=${out%$'\n'*}
+          echo "mod lookup: HTTP $code"
+          echo "$body" | jq -c '{id: .data.id, name: .data.name}' || echo "$body" | head -c 600
+          id=$(echo "$body" | jq -r '.data.id // empty')
+          [ -n "$id" ] || exit 1
+          out=$(api "/mods/$id/files"); code=${out##*$'\n'}; body=${out%$'\n'*}
+          echo "files lookup: HTTP $code"
+          echo "$body" | jq -c '.data' | head -c 5000 || echo "$body" | head -c 600

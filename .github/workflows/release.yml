@@ -60,8 +60,8 @@ jobs:
           echo "Installed. Launch Souls-like from your app menu."
           SH
           chmod +x "dist/$name/install.sh"
-          tar -C dist -czf "$name.tar.gz" "$name"
-          echo "ASSET=$name.tar.gz" >> "$GITHUB_ENV"
+          (cd dist && zip -qr "../$name.zip" "$name")
+          echo "ASSET=$name.zip" >> "$GITHUB_ENV"
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -101,3 +101,29 @@ jobs:
             --title "Souls-like ${{ github.ref_name }}" \
             --generate-notes \
             --notes "Prebuilt binaries for Linux (x86_64) and Windows (x86_64). Mods are not included. Linux: extract and run install.sh. Windows: unzip and run souls-like.exe. Windows build is untested on real hardware."
+
+  nexus:
+    name: nexus (${{ matrix.game }}, ${{ matrix.os }})
+    needs: publish
+    if: vars.NEXUS_FILES != ''
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(vars.NEXUS_FILES || '[{}]') }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+      - id: version
+        run: echo "number=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: Nexus-Mods/upload-action@v1.0.0-beta.11
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          mod_id: ${{ matrix.mod_id }}
+          file_id: ${{ matrix.file_id }}
+          filename: souls-like-${{ github.ref_name }}-${{ matrix.os }}.zip
+          version: ${{ steps.version.outputs.number }}
+          update_mod_version: true
+          archive_existing_version: true
+          changelog: "Souls-like ${{ github.ref_name }}: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"

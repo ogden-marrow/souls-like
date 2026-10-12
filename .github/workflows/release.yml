@@ -110,6 +110,15 @@ jobs:
           file_id: ${{ matrix.file_id }}
           filename: souls-like-${{ github.ref_name }}-${{ matrix.os }}.zip
           version: ${{ steps.version.outputs.number }}
+          description: ${{ matrix.os == 'windows-x86_64' && 'Windows 64-bit. Unzip and run souls-like.exe.' || 'Linux 64-bit. Unzip, then run ./souls-like --install once.' }}
           update_mod_version: true
           archive_existing_version: true
           changelog: "Souls-like ${{ github.ref_name }}: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+      - continue-on-error: true
+        env:
+          KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+          FILE_ID: ${{ matrix.file_id }}
+          FILE_NAME: Souls-like for ${{ matrix.os == 'windows-x86_64' && 'Windows' || 'Linux' }}
+        run: |
+          curl -fsS -X PUT -H "apikey: $KEY" -H "Content-Type: application/json" -H "User-Agent: souls-like-ci" \
+            -d "{\"name\":\"$FILE_NAME\"}" "https://api.nexusmods.com/v3/mod-files/$FILE_ID"
